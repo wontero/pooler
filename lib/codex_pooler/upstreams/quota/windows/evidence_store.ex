@@ -763,13 +763,93 @@ defmodule CodexPooler.Upstreams.Quota.Windows.EvidenceStore do
     end
   end
 
-  defp restart_candidate_decision(metadata, existing, evidence, timestamp) do
-    if RelativeLiveness.advances?(evidence, existing, timestamp) do
+defp restart_candidate_decision(metadata, existing, evidence, timestamp) do
+  cond do
+    RelativeLiveness.advances?(evidence, existing, timestamp) ->
       restart_candidate_decision_after_canonical(metadata, existing, evidence, timestamp)
-    else
+
+    safe_stuck_weekly_zero_confirmation?(metadata, existing, evidence, timestamp) ->
+      :accept
+
+    safe_stuck_weekly_zero_restart?(metadata, existing, evidence, timestamp) ->
+      :restart
+
+    true ->
       :keep
-    end
   end
+end
+
+defp safe_stuck_weekly_zero_confirmation?(
+       metadata,
+       existing,
+       %Evidence{} = evidence,
+       timestamp
+     ) do
+  case parse_candidate(metadata) do
+    {:ok, candidate} ->
+      age_seconds =
+        DateTime.diff(evidence.observed_at, candidate.observed_at, :second)
+
+      safe_stuck_weekly_zero_observation?(existing, evidence, timestamp) and
+        zero_candidate?(candidate) and
+        candidate_provider_status_safe?(metadata) and
+        newer_observation?(evidence.observed_at, candidate.observed_at) and
+        age_seconds >= @weekly_restart_confirmation_span_seconds and
+        age_seconds <= 2 * 60 * 60
+
+    :none ->
+      false
+  end
+end
+
+defp safe_stuck_weekly_zero_restart?(
+       metadata,
+       existing,
+       %Evidence{} = evidence,
+       timestamp
+     ) do
+  if safe_stuck_weekly_zero_observation?(existing, evidence, timestamp) do
+    case parse_candidate(metadata) do
+      :none ->
+        true
+
+      {:ok, candidate} ->
+        age_seconds =
+          DateTime.diff(evidence.observed_at, candidate.observed_at, :second)
+
+        age_seconds < 0 or age_seconds > 2 * 60 * 60
+    end
+  else
+    false
+  end
+end
+
+defp safe_stuck_weekly_zero_observation?(
+       existing,
+       %Evidence{
+         source: "codex_usage_api",
+         used_percent: %Decimal{},
+         reset_at: %DateTime{},
+         observed_at: %DateTime{},
+         metadata: evidence_metadata
+       } = evidence,
+       timestamp
+     )
+     when is_map(evidence_metadata) do
+  reset_seconds = DateTime.diff(evidence.reset_at, timestamp, :second)
+
+  account_weekly_evidence?(evidence) and
+    zero_percent?(evidence.used_percent) and
+    same_evidence_identity?(evidence, existing) and
+    provider_status_safe?(evidence_metadata) and
+    Map.get(evidence_metadata, "reset_after_seconds") == 604_800 and
+    Map.get(evidence_metadata, "limit_window_seconds") == 604_800 and
+    Evidence.current_freshness_state(evidence, timestamp) == "fresh" and
+    reset_seconds > 0 and
+    reset_seconds <= 8 * 24 * 60 * 60
+end
+
+defp safe_stuck_weekly_zero_observation?(_existing, _evidence, _timestamp), do: false
 
   defp restart_candidate_decision_after_canonical(metadata, existing, evidence, timestamp) do
     case parse_candidate(metadata) do
