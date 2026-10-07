@@ -5,7 +5,10 @@ defmodule CodexPooler.Upstreams.CodexClientIdentity do
 
   @originator "codex_cli_rs"
   # renovate: datasource=github-releases depName=openai/codex extractVersion=^rust-v(?<version>.+)$
-  @default_client_version "0.151.0"
+  # Keep catalog discovery aligned with the current Codex client contract. The
+  # model catalog is version-gated upstream, so an older identity can receive
+  # a reduced list even when the account itself can use newer models.
+  @default_client_version "0.159.0"
 
   @type header :: {String.t(), String.t()}
 

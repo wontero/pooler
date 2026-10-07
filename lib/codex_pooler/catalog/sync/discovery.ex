@@ -6,6 +6,7 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
   alias CodexPooler.Upstreams.CloudflareCookies
   alias CodexPooler.Upstreams.CodexClientIdentity
   alias CodexPooler.Upstreams.EndpointMetadata
+  alias CodexPooler.Upstreams.Schemas.UpstreamIdentity
   alias CodexPooler.Upstreams.Secrets
 
   @default_codex_upstream_base_url "https://chatgpt.com"
@@ -117,7 +118,7 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
         {"accept", "application/json"}
       ] ++ CodexClientIdentity.headers()
 
-    case present_string(identity.chatgpt_account_id) do
+    case UpstreamIdentity.account_scope(identity.chatgpt_account_id) do
       nil -> headers
       account_id -> [{"chatgpt-account-id", account_id} | headers]
     end
@@ -217,10 +218,4 @@ defmodule CodexPooler.Catalog.Sync.Discovery do
     end
   end
 
-  defp present_string(value) when is_binary(value) do
-    value = String.trim(value)
-    if value == "", do: nil, else: value
-  end
-
-  defp present_string(_value), do: nil
 end

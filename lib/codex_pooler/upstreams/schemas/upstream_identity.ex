@@ -17,6 +17,7 @@ defmodule CodexPooler.Upstreams.Schemas.UpstreamIdentity do
   @saved_reset_auto_redeem_trigger_modes ~w(blocked threshold)
   @plan_family_format ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
   @codex_chatgpt_oauth "codex_chatgpt_oauth"
+  @synthetic_account_id_prefixes ~w(email_ local_)
 
   @type t :: %__MODULE__{}
   @type attrs :: map()
@@ -131,6 +132,19 @@ defmodule CodexPooler.Upstreams.Schemas.UpstreamIdentity do
       name: :upstream_identities_chatgpt_user_workspace_slot_uq
     )
   end
+
+  @spec account_scope(term()) :: String.t() | nil
+  def account_scope(account_id) when is_binary(account_id) do
+    trimmed = String.trim(account_id)
+
+    if trimmed == "" or String.starts_with?(trimmed, @synthetic_account_id_prefixes) do
+      nil
+    else
+      trimmed
+    end
+  end
+
+  def account_scope(_account_id), do: nil
 
   @spec statuses() :: [status()]
   defdelegate statuses(), to: IdentityStatus

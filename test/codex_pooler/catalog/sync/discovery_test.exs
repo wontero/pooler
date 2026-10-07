@@ -80,6 +80,27 @@ defmodule CodexPooler.Catalog.Sync.DiscoveryTest do
     refute Map.has_key?(second_headers, "cookie")
   end
 
+  test "model discovery omits synthetic account scopes" do
+    {:ok, upstream} =
+      FakeUpstream.start_link(
+        {:sequence, [FakeUpstream.json_response(%{"data" => [%{"id" => "gpt-example"}]})]}
+      )
+
+    on_exit(fn -> FakeUpstream.stop(upstream) end)
+
+    %{identity: identity, assignment: assignment} =
+      active_upstream_assignment_fixture(pool_fixture(),
+        chatgpt_account_id: "email_synthetic@example.com",
+        metadata: %{"base_url" => FakeUpstream.url(upstream)}
+      )
+
+    assert {:ok, [%{"id" => "gpt-example"}]} =
+             Discovery.fetch_models_for_assignment(%{identity: identity, assignment: assignment})
+
+    request = upstream |> FakeUpstream.requests() |> List.first()
+    refute Map.has_key?(Map.new(request.headers), "chatgpt-account-id")
+  end
+
   defp assert_codex_client_identity_headers(headers) do
     version = CodexClientIdentity.version()
 
