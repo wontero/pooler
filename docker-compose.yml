@@ -73,7 +73,8 @@ services:
       CODEX_POOLER_UPSTREAM_SECRET_KEY: ${CODEX_POOLER_UPSTREAM_SECRET_KEY:?set CODEX_POOLER_UPSTREAM_SECRET_KEY in .env}
       CODEX_POOLER_UPSTREAM_SECRET_KEY_VERSION: ${CODEX_POOLER_UPSTREAM_SECRET_KEY_VERSION:-v1}
     ports:
-      - "${CODEX_POOLER_HTTP_PORT:-4000}:4000"
+      # Personal install: keep the admin/API surface reachable only from this PC.
+      - "127.0.0.1:${CODEX_POOLER_HTTP_PORT:-4000}:4000"
 
 volumes:
   codex-pooler-postgres:

@@ -14,7 +14,8 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 
 rand_b64() {
-  openssl rand -base64 "$1" | tr -d '\n'
+  # Windows OpenSSL may emit CRLF; remove both characters so dotenv values stay single-line.
+  openssl rand -base64 "$1" | tr -d '\r\n'
 }
 
 postgres_password="$(openssl rand -hex 24)"
